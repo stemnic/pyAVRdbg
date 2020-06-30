@@ -36,12 +36,16 @@ class Debugger():
     # Memory interaction (SRAM)
     def writeMemory(self, address, data):
         #self.detach()
-        return self.device.write(self.memoryinfo.memory_info_by_name('internal_sram'), 0, 64)
+        return self.device.write(self.memoryinfo.memory_info_by_name('internal_sram'), address, data)
 
     def readMemory(self, address, numBytes):
         #self.detach()
-        return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), 0, 64)
-    
+        return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), address, numBytes)
+
+    def readFlash(self, address, numBytes):
+        #self.detach()
+        return self.device.read(self.memoryinfo.memory_info_by_name('flash'), address, numBytes)
+
     # General debugging
 
     def attach(self):
@@ -66,6 +70,12 @@ class Debugger():
     def runTo(self, address):
         self.device.avr.protocol.run_to(address)
 
+    def readStackPointer(self):
+        return self.device.avr.stack_pointer_read()
+
+    def readSREG(self):
+        return self.device.avr.protocol.memory_read(avr8protocol.Avr8Protocol.AVR8_MEMTYPE_OCD, 0x1C, 0x01)
+
     # Register and programcounter
     def readRegs(self):
         return self.device.avr.protocol.regfile_read()
@@ -74,7 +84,7 @@ class Debugger():
         return self.device.avr.protocol.regile_write(regs)
 
     def readProgramCounter(self):
-        self.device.avr.protocol.program_counter_read()
+        return self.device.avr.protocol.program_counter_read()
 
     def writeProgramCounter(self, programCounter):
         self.device.avr.protocol.program_counter_write(programCounter)

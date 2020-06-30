@@ -77,12 +77,19 @@ def handleCommand(socket, command):
         dbg.run()
         sendPacket(socket, SIGTRAP)
     elif "m" == command[0]:
+        # Assuming read from flash
         addrSize = command[1:]
         addr = addrSize.split(",")[0]
         size = addrSize.split(",")[1]
         print(addr)
         print(size)
-        sendPacket(socket, "X")
+        flash = dbg.readFlash(int(addr, 16), int(size, 16))
+        print(flash)
+        flashString = ""
+        for byte in flash:
+            flashString = flashString + format(byte, '02x')
+        print(flashString)
+        sendPacket(socket, flashString)
     elif "M" == command[0]:
         newMemData = command[1:]
         # Do mem writing
@@ -90,9 +97,21 @@ def handleCommand(socket, command):
         sendPacket(socket, "OK")
     elif "g" == command:
         regs = dbg.readRegs()
+        sreg = dbg.readSREG()
+        sp = dbg.readStackPointer()
+        print([hex(no) for no in regs])
+        print([hex(no) for no in sreg])
+        print([hex(no) for no in sp])
         regString = ""
         for reg in regs:
             regString = regString + format(reg, '02x')
+        sregString = ""
+        for reg in sreg:
+            sregString = sregString + format(reg, '02x')
+        spString = ""
+        for reg in sp:
+            spString = spString + format(reg, '02x')
+        regString = regString + sregString + spString
         sendPacket(socket, regString)
     elif "G" == command[0]:
         newRegData = command[1:]
@@ -102,10 +121,36 @@ def handleCommand(socket, command):
     elif "k" == command[0]:
         dbg.cleanup()
         quit()
-    #elif "p" == command[0]:
+    elif "p" == command[0]:
         # Reads register
-        #regN = command[1:]
-        #sendPacket(socket, readRegs(2))
+        if len(command) > 1:
+            if command[1:] == "22":
+                # GDB defines PC register for AVR to be REG34(0x22)
+                pc = dbg.readProgramCounter()
+                print(pc)
+                print(hex(pc))
+                pc = pc << 1
+                print(hex(pc))
+                pcString = format(pc, '08x')
+                print(pcString)
+                pcByteAr = bytearray.fromhex(pcString.upper())
+                pcByteAr.reverse()
+                pcByteString = ''.join(format(x, '02x') for x in pcByteAr)
+                #pcString = format(pc, '0<8x')
+                # $1234abcd#54 => 0xcdab3412 in GDB
+                # Preforming therefore mirror magic
+                #pcStringMagicFormat = ""
+                #for i in range(len(pcString)):
+                #    if i % 2 == 0:
+                #        if i == len(pcString)-1:
+                #            pcStringMagicFormat = pcStringMagicFormat + "0" + pcString[i]
+                #        else:
+                #            pcStringMagicFormat = pcStringMagicFormat + pcString[i] + pcString[i+1]
+                    
+                #while len(pcStringMagicFormat) < 8:
+                #    pcStringMagicFormat = pcStringMagicFormat + "0"
+                print(pcByteString)
+                sendPacket(socket, pcByteString)
     else:
         sendPacket(socket, "")
 
