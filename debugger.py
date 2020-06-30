@@ -33,18 +33,57 @@ class Debugger():
         # Start debug by attaching (live)
         self.device.avr.protocol.attach()
     
-    # Memory interaction (SRAM)
-    def writeMemory(self, address, data):
-        #self.detach()
-        return self.device.write(self.memoryinfo.memory_info_by_name('internal_sram'), address, data)
+    # Memory interaction
+    def writeSRAM(self, address, data):
+        offset = (self.memoryinfo.memory_info_by_name('internal_sram'))['address']
+        return self.device.write(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, data)
 
-    def readMemory(self, address, numBytes):
-        #self.detach()
-        return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), address, numBytes)
+    def readSRAM(self, address, numBytes):
+        offset = (self.memoryinfo.memory_info_by_name('internal_sram'))['address']
+        return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, numBytes)
 
     def readFlash(self, address, numBytes):
-        #self.detach()
         return self.device.read(self.memoryinfo.memory_info_by_name('flash'), address, numBytes)
+
+    def writeEEPROM(self, address, data):
+        offset = (self.memoryinfo.memory_info_by_name('eeprom'))['address']
+        return self.device.write(self.memoryinfo.memory_info_by_name('eeprom'), address-offset, data)
+
+    def readEEPROM(self, address, numBytes):
+        offset = (self.memoryinfo.memory_info_by_name('eeprom'))['address']
+        return self.device.read(self.memoryinfo.memory_info_by_name('eeprom'), address-offset, numBytes)
+
+    def writeFuse(self, address, data):
+        offset = (self.memoryinfo.memory_info_by_name('fuses'))['address']
+        return self.device.write(self.memoryinfo.memory_info_by_name('fuses'), address-offset, data)
+
+    def readFuse(self, address, numBytes):
+        offset = (self.memoryinfo.memory_info_by_name('fuses'))['address']
+        return self.device.read(self.memoryinfo.memory_info_by_name('fuses'), address-offset, numBytes)
+
+    def writeLock(self, address, data):
+        offset = (self.memoryinfo.memory_info_by_name('lockbits'))['address']
+        return self.device.write(self.memoryinfo.memory_info_by_name('lockbits'), address-offset, data)
+
+    def readLock(self, address, numBytes):
+        offset = (self.memoryinfo.memory_info_by_name('lockbits'))['address']
+        return self.device.read(self.memoryinfo.memory_info_by_name('lockbits'), address-offset, numBytes)
+
+    def writeSignature(self, address, data):
+        offset = (self.memoryinfo.memory_info_by_name('signatures'))['address']
+        return self.device.write(self.memoryinfo.memory_info_by_name('signatures'), address-offset, data)
+
+    def readSignature(self, address, numBytes):
+        offset = (self.memoryinfo.memory_info_by_name('signatures'))['address']
+        return self.device.read(self.memoryinfo.memory_info_by_name('signatures'), address-offset, numBytes)
+
+    def writeUserSignature(self, address, data):
+        offset = (self.memoryinfo.memory_info_by_name('user_row'))['address']
+        return self.device.write(self.memoryinfo.memory_info_by_name('user_row'), address-offset, data)
+
+    def readUserSignature(self, address, numBytes):
+        offset = (self.memoryinfo.memory_info_by_name('user_row'))['address']
+        return self.device.read(self.memoryinfo.memory_info_by_name('user_row'), address-offset, numBytes)
 
     # General debugging
 

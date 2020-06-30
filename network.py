@@ -78,22 +78,91 @@ def handleCommand(socket, command):
         sendPacket(socket, SIGTRAP)
     elif "m" == command[0]:
         # Assuming read from flash
+        # ref https://www.nongnu.org/avr-libc/user-manual/mem_sections.html#harvard_arch
+        # Memory Configuration
+        # Name             Origin             Length             Attributes
+        # text             0x00000000         0x0000c000         xr
+        # data             0x00802800         0x00001800         rw !x
+        # eeprom           0x00810000         0x00000100         rw !x
+        # fuse             0x00820000         0x0000000a         rw !x
+        # lock             0x00830000         0x00000400         rw !x
+        # signature        0x00840000         0x00000400         rw !x
+        # user_signatures  0x00850000         0x00000400         rw !x
+        # *default*        0x00000000         0xffffffff
         addrSize = command[1:]
         addr = addrSize.split(",")[0]
         size = addrSize.split(",")[1]
         print(addr)
         print(size)
-        flash = dbg.readFlash(int(addr, 16), int(size, 16))
-        print(flash)
-        flashString = ""
-        for byte in flash:
-            flashString = flashString + format(byte, '02x')
-        print(flashString)
-        sendPacket(socket, flashString)
+        addrSection = 00
+        if len(addr) > 4:
+            if len(addr) == 6:
+                addrSection = addr[:2]
+                addr = addr[2:]
+            else:
+                addrSection = "0" + addr[0]
+                addr = addr[1:]
+        
+        data = bytearray()
+        print(addrSection)
+        if addrSection == "80":
+            data = dbg.readSRAM(int(addr, 16), int(size, 16))
+        elif addrSection == "81":
+            data = dbg.readEEPROM(int(addr, 16), int(size, 16))
+        elif addrSection == "82":
+            data = dbg.readFuse(int(addr, 16), int(size, 16))
+        elif addrSection == "83":
+            data = dbg.readLock(int(addr, 16), int(size, 16))
+        elif addrSection == "84":
+            data = dbg.readSignature(int(addr, 16), int(size, 16))
+        elif addrSection == "85":
+            data = dbg.readUserSignature(int(addr, 16), int(size, 16))
+        else:
+            data = dbg.readFlash(int(addr, 16), int(size, 16))
+        print(data)
+        dataString = ""
+        for byte in data:
+            dataString = dataString + format(byte, '02x')
+        print(dataString)
+        sendPacket(socket, dataString)
     elif "M" == command[0]:
-        newMemData = command[1:]
         # Do mem writing
-        print(newMemData)
+        addrSizeData = command[1:]
+        addr = addrSizeData.split(",")[0]
+        size = (addrSizeData.split(",")[1]).split(":")[0]
+        data = (addrSizeData.split(",")[1]).split(":")[1]
+        print(addr)
+        print(size)
+        print(data)
+        addrSection = 00
+        if len(addr) > 4:
+            if len(addr) == 6:
+                addrSection = addr[:2]
+                addr = addr[2:]
+            else:
+                addrSection = "0" + addr[0]
+                addr = addr[1:]
+        data = int(data, 16)
+        print(data)
+        data = data.to_bytes(int(size, 16), byteorder='big')
+        print(data)
+        print(addrSection)
+        if addrSection == "80":
+            data = dbg.writeSRAM(int(addr, 16), data)
+        elif addrSection == "81":
+            data = dbg.writeEEPROM(int(addr, 16), data)
+        elif addrSection == "82":
+            data = dbg.writeFuse(int(addr, 16), data)
+        elif addrSection == "83":
+            data = dbg.writeLock(int(addr, 16), data)
+        elif addrSection == "84":
+            data = dbg.writeSignature(int(addr, 16), data)
+        elif addrSection == "85":
+            data = dbg.writeUserSignature(int(addr, 16), data)
+        else:
+            # Flash write not supported here
+            # EACCES
+            sendPacket(socket, "E13")
         sendPacket(socket, "OK")
     elif "g" == command:
         regs = dbg.readRegs()
