@@ -76,6 +76,39 @@ def handleCommand(socket, command):
             print(addr)
         dbg.run()
         sendPacket(socket, SIGTRAP)
+    elif "z" == command[0]:
+        breakpointType = command[1]
+        addr = command.split(",")[1]
+        length = command.split(",")[2]
+        if breakpointType == "0":
+            #SW breakpoint
+            dbg.breakpointSWClear(int(addr, 16))
+            sendPacket(socket, "OK")
+        elif breakpointType == "1":
+            #HW breakpoint
+            dbg.breakpointHWClear()
+            sendPacket(socket, "OK")
+        else:
+            #Not Supported
+            sendPacket(socket, "")
+    elif "Z" == command[0]:
+        breakpointType = command[1]
+        addr = command.split(",")[1]
+        length = command.split(",")[2]
+        print(breakpointType)
+        print(addr)
+        print(int(addr, 16))
+        if breakpointType == "0":
+            #SW breakpoint
+            dbg.breakpointSWSet(int(addr, 16))
+            sendPacket(socket, "OK")
+        elif breakpointType == "1":
+            #HW breakpoint
+            dbg.breakpointHWSet(int(addr, 16))
+            sendPacket(socket, "OK")
+        else:
+            #Not Supported
+            sendPacket(socket, "")
     elif "m" == command[0]:
         # Assuming read from flash
         # ref https://www.nongnu.org/avr-libc/user-manual/mem_sections.html#harvard_arch
@@ -251,7 +284,7 @@ def handleData(socket, data):
     #elif data.decode("ascii").count("-") > 0:
         #sendPacket(socket, lastPacket)
 
-
+print("Waiting for GDB session " + str(HOST) + ":" + str(PORT))
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT))
     s.listen()
