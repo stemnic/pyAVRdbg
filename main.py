@@ -75,12 +75,16 @@ def handleCommand(socket, command):
         if len(command) > 1:
             addr = command[1:]
             print(addr)
-        lastPC = dbg.readProgramCounter()
+        
         dbg.run()
         # Check if its still running, report back SIGTRAP when break. Is there a better solution than this?
+        lastPC1 = 1
+        lastPC2 = 2
         time.sleep(0.001)
-        while lastPC != dbg.readProgramCounter():
+        while lastPC1 != lastPC2:
+            lastPC1 = dbg.readProgramCounter()
             time.sleep(0.001)
+            lastPC2 = dbg.readProgramCounter()
         sendPacket(socket, SIGTRAP)
     elif "z" == command[0]:
         breakpointType = command[1]
