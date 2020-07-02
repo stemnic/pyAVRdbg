@@ -66,6 +66,8 @@ def handleCommand(socket, command):
                 return
         sendPacket(socket, "")
     elif "s" == command[0]:
+        # TODO: Make s behavior more in line with GDB docs
+        # "addr is address to resume. If addr is omitted, resume at same address."
         if len(command) > 1:
             addr = command[1:]
             print(addr)
@@ -236,6 +238,7 @@ def handleCommand(socket, command):
         quit()
     elif "p" == command[0]:
         # Reads register
+        # TODO: Implement individual register reads
         if len(command) > 1:
             if command[1:] == "22":
                 # GDB defines PC register for AVR to be REG34(0x22)
