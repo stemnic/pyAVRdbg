@@ -3,6 +3,7 @@ import socket
 import debugger
 import signal
 import sys
+import time
 
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
 PORT = 12555        # Port to listen on (non-privileged ports are > 1023)
@@ -74,7 +75,12 @@ def handleCommand(socket, command):
         if len(command) > 1:
             addr = command[1:]
             print(addr)
+        lastPC = dbg.readProgramCounter()
         dbg.run()
+        # Check if its still running, report back SIGTRAP when break. Is there a better solution than this?
+        time.sleep(0.001)
+        while lastPC != dbg.readProgramCounter():
+            time.sleep(0.001)
         sendPacket(socket, SIGTRAP)
     elif "z" == command[0]:
         breakpointType = command[1]
@@ -283,6 +289,7 @@ def handleData(socket, data):
                 #commands.append(command.split("+")[0])
     #elif data.decode("ascii").count("-") > 0:
         #sendPacket(socket, lastPacket)
+
 
 print("Waiting for GDB session " + str(HOST) + ":" + str(PORT))
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
