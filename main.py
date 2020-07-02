@@ -228,8 +228,9 @@ def handleCommand(socket, command):
     elif "G" == command[0]:
         newRegData = command[1:]
         # Do reg writing
+        # TODO: Implement
         print(newRegData)
-        sendPacket(socket, "OK")
+        sendPacket(socket, "")
     elif "k" == command[0]:
         dbg.cleanup()
         quit()
