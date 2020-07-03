@@ -57,3 +57,4 @@ A huge thanks to Microchip for making pymcuprog available
 - https://onlinedocs.microchip.com/pr/GUID-33422CDF-8B41-417C-9C31-E4521ADAE9B4-en-US-2/index.html
 - https://github.com/mbedmicro/pyOCD/tree/master/pyocd
 - https://developer.apple.com/library/archive/documentation/DeveloperTools/gdb/gdb/gdb_33.html
+- http://ww1.microchip.com/downloads/en/DeviceDoc/50002630A.pdf
