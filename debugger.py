@@ -10,12 +10,25 @@ from pymcuprog.deviceinfo import deviceinfo
 # Construct an NVM provider
 from pymcuprog.nvmupdi import NvmAccessProviderCmsisDapUpdi
 
+from pyedbglib.protocols.avrcmsisdap import AvrCommand, AvrCommandError
+
 import logging
+import threading
+import time
+import asyncio
 
 # Start session
 #avr.start()
 
 logging.basicConfig(level=logging.INFO,handlers=[logging.StreamHandler()])
+
+lock = asyncio.Lock()
+
+async def pollingThread(eventReciver: AvrCommand):
+    reciver = eventReciver
+    while True:
+        async with lock:
+            logging.info(reciver.poll_events())
 
 class Debugger():
 
@@ -28,121 +41,157 @@ class Debugger():
         self.deviceInf = deviceinfo.getdeviceinfo(DeviceName)
         self.memoryinfo = deviceinfo.DeviceMemoryInfo(self.deviceInf)
         self.device = NvmAccessProviderCmsisDapUpdi(self.transport, self.deviceInf)
+        self.eventReciver = AvrCommand(self.transport)
         self.device.avr.deactivate_physical()
         self.device.avr.activate_physical()
         # Start debug by attaching (live)
         self.device.avr.protocol.attach()
+        threading.Thread(target=pollingThread, args=(self.eventReciver,)).start()
     
+    async def pollEvent(self):
+        logging.info(self.eventReciver.poll_events())
+
     # Memory interaction
-    def writeSRAM(self, address, data):
+    async def writeSRAM(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('internal_sram'))['address']
-        return self.device.write(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, data)
+        async with lock:
+            return self.device.write(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, data)
 
-    def readSRAM(self, address, numBytes):
+    async def readSRAM(self, address, numBytes):
         offset = (self.memoryinfo.memory_info_by_name('internal_sram'))['address']
-        return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, numBytes)
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, numBytes)
 
-    def readFlash(self, address, numBytes):
-        return self.device.read(self.memoryinfo.memory_info_by_name('flash'), address, numBytes)
+    async def readFlash(self, address, numBytes):
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('flash'), address, numBytes)
 
-    def writeEEPROM(self, address, data):
+    async def writeEEPROM(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('eeprom'))['address']
-        return self.device.write(self.memoryinfo.memory_info_by_name('eeprom'), address-offset, data)
+        async with lock:
+            return self.device.write(self.memoryinfo.memory_info_by_name('eeprom'), address-offset, data)
 
-    def readEEPROM(self, address, numBytes):
+    async def readEEPROM(self, address, numBytes):
         offset = (self.memoryinfo.memory_info_by_name('eeprom'))['address']
-        return self.device.read(self.memoryinfo.memory_info_by_name('eeprom'), address-offset, numBytes)
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('eeprom'), address-offset, numBytes)
 
-    def writeFuse(self, address, data):
+    async def writeFuse(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('fuses'))['address']
-        return self.device.write(self.memoryinfo.memory_info_by_name('fuses'), address-offset, data)
+        async with lock:
+            return self.device.write(self.memoryinfo.memory_info_by_name('fuses'), address-offset, data)
 
-    def readFuse(self, address, numBytes):
+    async def readFuse(self, address, numBytes):
         offset = (self.memoryinfo.memory_info_by_name('fuses'))['address']
-        return self.device.read(self.memoryinfo.memory_info_by_name('fuses'), address-offset, numBytes)
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('fuses'), address-offset, numBytes)
 
-    def writeLock(self, address, data):
+    async def writeLock(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('lockbits'))['address']
-        return self.device.write(self.memoryinfo.memory_info_by_name('lockbits'), address-offset, data)
+        async with lock:
+            return self.device.write(self.memoryinfo.memory_info_by_name('lockbits'), address-offset, data)
 
-    def readLock(self, address, numBytes):
+    async def readLock(self, address, numBytes):
         offset = (self.memoryinfo.memory_info_by_name('lockbits'))['address']
-        return self.device.read(self.memoryinfo.memory_info_by_name('lockbits'), address-offset, numBytes)
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('lockbits'), address-offset, numBytes)
 
-    def writeSignature(self, address, data):
+    async def writeSignature(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('signatures'))['address']
-        return self.device.write(self.memoryinfo.memory_info_by_name('signatures'), address-offset, data)
+        async with lock:
+            return self.device.write(self.memoryinfo.memory_info_by_name('signatures'), address-offset, data)
 
-    def readSignature(self, address, numBytes):
+    async def readSignature(self, address, numBytes):
         offset = (self.memoryinfo.memory_info_by_name('signatures'))['address']
-        return self.device.read(self.memoryinfo.memory_info_by_name('signatures'), address-offset, numBytes)
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('signatures'), address-offset, numBytes)
 
-    def writeUserSignature(self, address, data):
+    async def writeUserSignature(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('user_row'))['address']
-        return self.device.write(self.memoryinfo.memory_info_by_name('user_row'), address-offset, data)
+        async with lock:
+            return self.device.write(self.memoryinfo.memory_info_by_name('user_row'), address-offset, data)
 
-    def readUserSignature(self, address, numBytes):
+    async def readUserSignature(self, address, numBytes):
         offset = (self.memoryinfo.memory_info_by_name('user_row'))['address']
-        return self.device.read(self.memoryinfo.memory_info_by_name('user_row'), address-offset, numBytes)
+        async with lock:
+            return self.device.read(self.memoryinfo.memory_info_by_name('user_row'), address-offset, numBytes)
 
     # General debugging
 
-    def attach(self):
-        self.device.avr.protocol.attach()
+    async def attach(self):
+        async with lock:
+            self.device.avr.protocol.attach()
 
-    def detach(self):
-        self.device.avr.protocol.detach()
+    async def detach(self):
+        async with lock:
+            self.device.avr.protocol.detach()
 
     # Flow controll
-    def reset(self):
-        self.device.avr.protocol.reset()
+    async def reset(self):
+        async with lock:
+            self.device.avr.protocol.reset()
     
-    def step(self):
-        self.device.avr.protocol.step() 
+    async def step(self):
+        async with lock:
+            self.device.avr.protocol.step() 
     
-    def stop(self):
-        self.device.avr.protocol.stop()
+    async def stop(self):
+        async with lock:
+            self.device.avr.protocol.stop()
 
-    def run(self):
-        self.device.avr.protocol.run()
+    async def run(self):
+        async with lock:
+            self.device.avr.protocol.run()
 
-    def runTo(self, address):
-        self.device.avr.protocol.run_to(address)
+    async def runTo(self, address):
+        async with lock:
+            self.device.avr.protocol.run_to(address)
 
-    def readStackPointer(self):
-        return self.device.avr.stack_pointer_read()
+    async def readStackPointer(self):
+        async with lock:
+            return self.device.avr.stack_pointer_read()
 
-    def readSREG(self):
-        return self.device.avr.protocol.memory_read(avr8protocol.Avr8Protocol.AVR8_MEMTYPE_OCD, 0x1C, 0x01)
+    async def readSREG(self):
+        async with lock:
+            return self.device.avr.protocol.memory_read(avr8protocol.Avr8Protocol.AVR8_MEMTYPE_OCD, 0x1C, 0x01)
 
     # Register and programcounter
-    def readRegs(self):
-        return self.device.avr.protocol.regfile_read()
+    async def readRegs(self):
+        async with lock:
+            return self.device.avr.protocol.regfile_read()
 
-    def writeRegs(self, regs):
-        return self.device.avr.protocol.regile_write(regs)
+    async def writeRegs(self, regs):
+        async with lock:
+            return self.device.avr.protocol.regile_write(regs)
 
-    def readProgramCounter(self):
-        return self.device.avr.protocol.program_counter_read()
+    async def readProgramCounter(self):
+        async with lock:
+            return self.device.avr.protocol.program_counter_read()
 
-    def writeProgramCounter(self, programCounter):
-        self.device.avr.protocol.program_counter_write(programCounter)
+    async def writeProgramCounter(self, programCounter):
+        async with lock:
+            self.device.avr.protocol.program_counter_write(programCounter)
 
     # SoftwareBreakpoints
-    def breakpointSWSet(self, address):
-        self.device.avr.protocol.software_breakpoint_set(address)
+    async def breakpointSWSet(self, address):
+        async with lock:
+            self.device.avr.protocol.software_breakpoint_set(address)
     
-    def breakpointSWClear(self, address):
-        self.device.avr.protocol.software_breakpoint_clear(address)
+    async def breakpointSWClear(self, address):
+        async with lock:
+            self.device.avr.protocol.software_breakpoint_clear(address)
 
-    def breakpointSWClearAll(self):
-        self.device.avr.protocol.software_breakpoint_clear_all()
+    async def breakpointSWClearAll(self):
+        async with lock:
+            self.device.avr.protocol.software_breakpoint_clear_all()
     
-    def breakpointHWSet(self, address):
-        self.device.avr.breakpoint_set(address)
+    async def breakpointHWSet(self, address):
+        async with lock:
+            self.device.avr.breakpoint_set(address)
 
-    def breakpointHWClear(self):
-        self.device.avr.breakpoint_clear()
+    async def breakpointHWClear(self):
+        async with lock:
+            self.device.avr.breakpoint_clear()
     
     # Cleanup code for detatching target
     def cleanup(self):
