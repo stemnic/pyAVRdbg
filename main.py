@@ -79,11 +79,13 @@ def handleCommand(socket, command):
             print(addr)
         
         dbg.run()
+        dbg.pollEvent()
         # Check if its still running, report back SIGTRAP when break. Is there a better solution than this?
         lastPC1 = 1
         lastPC2 = 2
         time.sleep(0.001)
         while lastPC1 != lastPC2:
+            dbg.pollEvent()
             lastPC1 = dbg.readProgramCounter()
             time.sleep(0.001)
             lastPC2 = dbg.readProgramCounter()

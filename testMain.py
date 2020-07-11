@@ -1,5 +1,6 @@
 import debugger
 import logging
+import time
 
 dbg = debugger.Debugger("atmega4809")
 dbg.stop()
@@ -8,8 +9,22 @@ dbg.stop()
 #logging.info(dbg.readSREG())
 #logging.info(dbg.readStackPointer())
 dbg.pollEvent()
+dbg.breakpointSWSet(0x154)
+dbg.pollEvent()
+time.sleep(1)
+dbg.pollEvent()
+dbg.run()
+dbg.step()
+dbg.step()
+dbg.step()
+dbg.pollEvent()
+time.sleep(1)
+dbg.pollEvent()
 dbg.run()
 dbg.pollEvent()
+time.sleep(1)
+dbg.pollEvent()
+dbg.run()
 dbg.pollEvent()
 #logging.info(dbg.readRegs())
 
