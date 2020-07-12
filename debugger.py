@@ -10,12 +10,17 @@ from pymcuprog.deviceinfo import deviceinfo
 # Construct an NVM provider
 from pymcuprog.nvmupdi import NvmAccessProviderCmsisDapUpdi
 
-import logging
+from pyedbglib.protocols.avrcmsisdap import AvrCommand, AvrCommandError
+from pyedbglib.protocols.jtagice3protocol import Jtagice3Command
 
-# Start session
-#avr.start()
+import logging
+import threading
+import time
+import asyncio
 
 logging.basicConfig(level=logging.INFO,handlers=[logging.StreamHandler()])
+
+
 
 class Debugger():
 
@@ -27,12 +32,49 @@ class Debugger():
         self.transport.connect()
         self.deviceInf = deviceinfo.getdeviceinfo(DeviceName)
         self.memoryinfo = deviceinfo.DeviceMemoryInfo(self.deviceInf)
+        self.housekeeper = housekeepingprotocol.Jtagice3HousekeepingProtocol(self.transport)
+        self.housekeeper.start_session()
         self.device = NvmAccessProviderCmsisDapUpdi(self.transport, self.deviceInf)
         self.device.avr.deactivate_physical()
         self.device.avr.activate_physical()
         # Start debug by attaching (live)
         self.device.avr.protocol.attach()
+        #threading.Thread(target=pollingThread, args=(self.eventReciver,)).start()
     
+    def pollEvent(self):
+        #eventRegister = self.eventReciver.poll_events()
+        eventRegister = self.device.avr.protocol.poll_events()
+        #logging.info(eventRegister)
+        if eventRegister[0] == AvrCommand.AVR_EVENT: # Verifying data is an event
+            size = int.from_bytes(eventRegister[1:3], byteorder='big')
+            if size != 0:
+                #event recived
+                logging.info("Event recived")
+                eventarray = eventRegister[3:(size+1+3)]
+                SOF = eventarray[0]
+                protocol_version = eventarray[1:2]
+                sequence_id = eventarray[2:4]
+                protocol_handler_id = eventarray[4:5]
+                payload = eventarray[5:]
+                #logging.info(eventarray)
+                if payload[0] == avr8protocol.Avr8Protocol.EVT_AVR8_BREAK:
+                    event_id = payload[0]
+                    #event_version = payload[1]
+                    pc = payload[1:5]
+                    break_cause = payload[5]
+                    extended_info = payload[6:]
+                    print("PC: ", end="")
+                    print(int.from_bytes(pc, byteorder='little'))
+                    logging.info("Recived break event")
+                    return (avr8protocol.Avr8Protocol.EVT_AVR8_BREAK, int.from_bytes(pc, byteorder='little'))
+                else:
+                    logging.info("Unknown event: " + payload[0])
+                    return None
+                
+            else:
+                logging.info("No event")
+                return None
+
     # Memory interaction
     def writeSRAM(self, address, data):
         offset = (self.memoryinfo.memory_info_by_name('internal_sram'))['address']
@@ -88,26 +130,26 @@ class Debugger():
     # General debugging
 
     def attach(self):
-        self.device.avr.protocol.attach()
+            self.device.avr.protocol.attach()
 
     def detach(self):
-        self.device.avr.protocol.detach()
+            self.device.avr.protocol.detach()
 
     # Flow controll
     def reset(self):
-        self.device.avr.protocol.reset()
+            self.device.avr.protocol.reset()
     
     def step(self):
-        self.device.avr.protocol.step() 
+            self.device.avr.protocol.step() 
     
     def stop(self):
-        self.device.avr.protocol.stop()
+            self.device.avr.protocol.stop()
 
     def run(self):
-        self.device.avr.protocol.run()
+            self.device.avr.protocol.run()
 
     def runTo(self, address):
-        self.device.avr.protocol.run_to(address)
+            self.device.avr.protocol.run_to(address)
 
     def readStackPointer(self):
         return self.device.avr.stack_pointer_read()
@@ -123,26 +165,27 @@ class Debugger():
         return self.device.avr.protocol.regile_write(regs)
 
     def readProgramCounter(self):
+        # Returned as a word not a byte
         return self.device.avr.protocol.program_counter_read()
 
     def writeProgramCounter(self, programCounter):
-        self.device.avr.protocol.program_counter_write(programCounter)
+            self.device.avr.protocol.program_counter_write(programCounter)
 
     # SoftwareBreakpoints
     def breakpointSWSet(self, address):
-        self.device.avr.protocol.software_breakpoint_set(address)
+            self.device.avr.protocol.software_breakpoint_set(address)
     
     def breakpointSWClear(self, address):
-        self.device.avr.protocol.software_breakpoint_clear(address)
+            self.device.avr.protocol.software_breakpoint_clear(address)
 
     def breakpointSWClearAll(self):
-        self.device.avr.protocol.software_breakpoint_clear_all()
+            self.device.avr.protocol.software_breakpoint_clear_all()
     
     def breakpointHWSet(self, address):
-        self.device.avr.breakpoint_set(address)
+            self.device.avr.breakpoint_set(address)
 
     def breakpointHWClear(self):
-        self.device.avr.breakpoint_clear()
+            self.device.avr.breakpoint_clear()
     
     # Cleanup code for detatching target
     def cleanup(self):
@@ -152,6 +195,7 @@ class Debugger():
         #avr.stop()
         self.device.avr.deactivate_physical()
         # Unwind the stack
+        self.housekeeper.end_session()
         self.transport.disconnect()
     
     def __exit__(self, exc_type, exc_value, traceback):
