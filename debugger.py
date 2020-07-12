@@ -11,23 +11,16 @@ from pymcuprog.deviceinfo import deviceinfo
 from pymcuprog.nvmupdi import NvmAccessProviderCmsisDapUpdi
 
 from pyedbglib.protocols.avrcmsisdap import AvrCommand, AvrCommandError
+from pyedbglib.protocols.jtagice3protocol import Jtagice3Command
 
 import logging
 import threading
 import time
 import asyncio
 
-# Start session
-#avr.start()
+logging.basicConfig(level=logging.INFO,handlers=[logging.StreamHandler()])
 
-logging.basicConfig(level=logging.DEBUG,handlers=[logging.StreamHandler()])
 
-lock = asyncio.Lock()
-
-#def pollingThread(eventReciver: AvrCommand):
-#    reciver = eventReciver
-#    while True:
-##            logging.info(reciver.poll_events())
 
 class Debugger():
 
@@ -39,8 +32,9 @@ class Debugger():
         self.transport.connect()
         self.deviceInf = deviceinfo.getdeviceinfo(DeviceName)
         self.memoryinfo = deviceinfo.DeviceMemoryInfo(self.deviceInf)
+        self.housekeeper = housekeepingprotocol.Jtagice3HousekeepingProtocol(self.transport)
+        self.housekeeper.start_session()
         self.device = NvmAccessProviderCmsisDapUpdi(self.transport, self.deviceInf)
-        self.eventReciver = AvrCommand(self.transport)
         self.device.avr.deactivate_physical()
         self.device.avr.activate_physical()
         # Start debug by attaching (live)
@@ -48,18 +42,35 @@ class Debugger():
         #threading.Thread(target=pollingThread, args=(self.eventReciver,)).start()
     
     def pollEvent(self):
-        eventRegister = self.eventReciver.poll_events()
-        for byte in eventRegister:
-            print(hex(byte), end=' ')
-        logging.info(eventRegister)
+        #eventRegister = self.eventReciver.poll_events()
+        eventRegister = self.device.avr.protocol.poll_events()
+        #logging.info(eventRegister)
         if eventRegister[0] == AvrCommand.AVR_EVENT: # Verifying data is an event
             size = int.from_bytes(eventRegister[1:3], byteorder='big')
             if size != 0:
                 #event recived
                 logging.info("Event recived")
                 eventarray = eventRegister[3:(size+1+3)]
-                logging.info(eventarray)
-                return eventarray
+                SOF = eventarray[0]
+                protocol_version = eventarray[1:2]
+                sequence_id = eventarray[2:4]
+                protocol_handler_id = eventarray[4:5]
+                payload = eventarray[5:]
+                #logging.info(eventarray)
+                if payload[0] == avr8protocol.Avr8Protocol.EVT_AVR8_BREAK:
+                    event_id = payload[0]
+                    #event_version = payload[1]
+                    pc = payload[1:5]
+                    break_cause = payload[5]
+                    extended_info = payload[6:]
+                    print("PC: ", end="")
+                    print(int.from_bytes(pc, byteorder='little'))
+                    logging.info("Recived break event")
+                    return (avr8protocol.Avr8Protocol.EVT_AVR8_BREAK, int.from_bytes(pc, byteorder='little'))
+                else:
+                    logging.info("Unknown event: " + payload[0])
+                    return None
+                
             else:
                 logging.info("No event")
                 return None
@@ -154,6 +165,7 @@ class Debugger():
         return self.device.avr.protocol.regile_write(regs)
 
     def readProgramCounter(self):
+        # Returned as a word not a byte
         return self.device.avr.protocol.program_counter_read()
 
     def writeProgramCounter(self, programCounter):
@@ -183,6 +195,7 @@ class Debugger():
         #avr.stop()
         self.device.avr.deactivate_physical()
         # Unwind the stack
+        self.housekeeper.end_session()
         self.transport.disconnect()
     
     def __exit__(self, exc_type, exc_value, traceback):
