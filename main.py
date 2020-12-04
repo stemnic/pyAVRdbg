@@ -1,6 +1,7 @@
 
 import socket
 import debugger
+from pyedbglib.protocols import avr8protocol
 import signal
 import sys
 import time
@@ -11,9 +12,14 @@ PORT = 12555        # Port to listen on (non-privileged ports are > 1023)
 lastPacket = ""
 
 dbg = debugger.Debugger("atmega4809")
-dbg.stop()
+
+#pollet_event = dbg.pollEvent()
+#while pollet_event != None:
+#    pollet_event = dbg.pollEvent()
+#    dbg.run()
 
 SIGTRAP = "S05"
+last_SIGVAL = "S00" 
 
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
@@ -31,9 +37,11 @@ def sendPacket(socket, packetData):
     socket.sendall(message.encode("ascii"))
 
 def handleCommand(socket, command):
+    dbg.readRunningState()
     # Required support g, G, m, M, c and s
     if "?" == command[0]:
-        sendPacket(socket, SIGTRAP)
+        global last_SIGVAL
+        sendPacket(socket, last_SIGVAL)
     #elif "Hc-1" in command:
         #sendPacket(socket, "OK")
     #elif "Hg-1" in command:
@@ -73,17 +81,21 @@ def handleCommand(socket, command):
             print(addr)
         dbg.step()
         sendPacket(socket, SIGTRAP)
+        last_SIGVAL = SIGTRAP
     elif "c" == command[0]:
         if len(command) > 1:
             addr = command[1:]
             print(addr)
         
         dbg.run()
-        polledEvent = dbg.pollEvent()
+        #polledEvent = dbg.pollEvent()
         # Check if its still running, report back SIGTRAP when break.
-        while polledEvent == None:
-            polledEvent = dbg.pollEvent()
-        sendPacket(socket, SIGTRAP)
+        #while polledEvent == None:
+        #    polledEvent = dbg.pollEvent()
+        #debug_check_running = dbg.readRunningState()
+        #while debug_check_running:
+        #    debug_check_running = dbg.readRunningState()
+        #sendPacket(socket, SIGTRAP)
     elif "z" == command[0]:
         breakpointType = command[1]
         addr = command.split(",")[1]
@@ -308,4 +320,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if len(data) > 0:
                 print("-> " + data.decode('ascii'))
                 handleData(conn, data)
+            event = dbg.pollEvent()
+            if event != None:
+                print(event)
+                eventType, pc, break_cause = event
+                if eventType == avr8protocol.Avr8Protocol.EVT_AVR8_BREAK and break_cause == 1:
+                    sendPacket(conn, SIGTRAP)
+                    last_SIGVAL = SIGTRAP
 

@@ -66,7 +66,7 @@ class Debugger():
                     print("PC: ", end="")
                     print(int.from_bytes(pc, byteorder='little'))
                     logging.info("Recived break event")
-                    return (avr8protocol.Avr8Protocol.EVT_AVR8_BREAK, int.from_bytes(pc, byteorder='little'))
+                    return (avr8protocol.Avr8Protocol.EVT_AVR8_BREAK, int.from_bytes(pc, byteorder='little'), break_cause)
                 else:
                     logging.info("Unknown event: " + payload[0])
                     return None
@@ -129,8 +129,8 @@ class Debugger():
 
     # General debugging
 
-    def attach(self):
-            self.device.avr.protocol.attach()
+    def attach(self, do_break=False):
+            self.device.avr.protocol.attach(do_break)
 
     def detach(self):
             self.device.avr.protocol.detach()
@@ -156,6 +156,15 @@ class Debugger():
 
     def readSREG(self):
         return self.device.avr.protocol.memory_read(avr8protocol.Avr8Protocol.AVR8_MEMTYPE_OCD, 0x1C, 0x01)
+
+    def readRunningState(self):
+        # Debug interface to see what state the avr is in.
+        AVR8_CONTEXT_TEST = 0x80
+        AVR8_TEST_TARGET_RUNNING = 0x00
+        running = bool(self.device.avr.protocol.get_byte(AVR8_CONTEXT_TEST, AVR8_TEST_TARGET_RUNNING))
+        logging.info("AVR running state " + str(running))
+        return running
+
 
     # Register and programcounter
     def readRegs(self):
