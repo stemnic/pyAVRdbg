@@ -35,7 +35,7 @@ class Debugger():
         self.housekeeper = housekeepingprotocol.Jtagice3HousekeepingProtocol(self.transport)
         self.housekeeper.start_session()
         self.device = NvmAccessProviderCmsisDapUpdi(self.transport, self.deviceInf)
-        self.device.avr.deactivate_physical()
+        #self.device.avr.deactivate_physical()
         self.device.avr.activate_physical()
         # Start debug by attaching (live)
         self.device.avr.protocol.attach()
@@ -149,7 +149,8 @@ class Debugger():
             self.device.avr.protocol.run()
 
     def runTo(self, address):
-            self.device.avr.protocol.run_to(address)
+        wordAddress = int(address/2)
+        self.device.avr.protocol.run_to(wordAddress)
 
     def readStackPointer(self):
         return self.device.avr.stack_pointer_read()
@@ -159,9 +160,9 @@ class Debugger():
 
     def readRunningState(self):
         # Debug interface to see what state the avr is in.
-        AVR8_CONTEXT_TEST = 0x80
-        AVR8_TEST_TARGET_RUNNING = 0x00
-        running = bool(self.device.avr.protocol.get_byte(AVR8_CONTEXT_TEST, AVR8_TEST_TARGET_RUNNING))
+        AVR8_CTXT_TEST = 0x80
+        AVR8_TEST_TGT_RUNNING = 0x00
+        running = bool(self.device.avr.protocol.get_byte(AVR8_CTXT_TEST, AVR8_TEST_TGT_RUNNING))
         logging.info("AVR running state " + str(running))
         return running
 
@@ -180,7 +181,8 @@ class Debugger():
     def writeProgramCounter(self, programCounter):
             self.device.avr.protocol.program_counter_write(programCounter)
 
-    # SoftwareBreakpoints
+    # SoftwareBreakpoints EDBG expects these addresses in bytes
+    # Multiple SW breakpoints can be defined by shifting 4 bytes to the left
     def breakpointSWSet(self, address):
             self.device.avr.protocol.software_breakpoint_set(address)
     
@@ -190,8 +192,10 @@ class Debugger():
     def breakpointSWClearAll(self):
             self.device.avr.protocol.software_breakpoint_clear_all()
     
+    # HardwareBreakpoints EDBG expects these addresses in words
     def breakpointHWSet(self, address):
-            self.device.avr.breakpoint_set(address)
+        wordAddress = int(address/2)
+        self.device.avr.breakpoint_set(wordAddress)
 
     def breakpointHWClear(self):
             self.device.avr.breakpoint_clear()
@@ -199,6 +203,9 @@ class Debugger():
     # Cleanup code for detatching target
     def cleanup(self):
         # and end debug
+        self.device.avr.protocol.stop()
+        self.device.avr.protocol.software_breakpoint_clear_all()
+        self.device.avr.breakpoint_clear()
         self.device.avr.protocol.detach()
         # Stop session
         #avr.stop()

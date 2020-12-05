@@ -5,6 +5,7 @@ from pyedbglib.protocols import avr8protocol
 import signal
 import sys
 import time
+import select
 
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
 PORT = 12555        # Port to listen on (non-privileged ports are > 1023)
@@ -12,10 +13,12 @@ PORT = 12555        # Port to listen on (non-privileged ports are > 1023)
 lastPacket = ""
 
 dbg = debugger.Debugger("atmega4809")
-
-#pollet_event = dbg.pollEvent()
-#while pollet_event != None:
-#    pollet_event = dbg.pollEvent()
+dbg.stop()
+dbg.breakpointSWClearAll()
+dbg.breakpointHWClear()
+pollet_event = dbg.pollEvent()
+while pollet_event != None:
+    pollet_event = dbg.pollEvent()
 #    dbg.run()
 
 SIGTRAP = "S05"
@@ -303,6 +306,10 @@ def handleData(socket, data):
             #for command in packet_data.split(";"):
                 #handleCommand(socket, command)
                 #commands.append(command.split("+")[0])
+    elif data == b"\x03":
+        dbg.stop()
+        socket.sendall(b"+")
+        print("<- +")
     #elif data.decode("ascii").count("-") > 0:
         #sendPacket(socket, lastPacket)
 
@@ -312,14 +319,17 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT))
     s.listen()
     conn, addr = s.accept()
+    conn.setblocking(0)
     with conn:
         print('Connected by', addr)
         while True:
             # Should iterate through buffer and take out commands/escape characters
-            data = conn.recv(1024)
-            if len(data) > 0:
-                print("-> " + data.decode('ascii'))
-                handleData(conn, data)
+            ready = select.select([conn], [], [], 0.5)
+            if ready[0]:
+                data = conn.recv(1024)
+                if len(data) > 0:
+                    print("-> " + data.decode('ascii'))
+                    handleData(conn, data)
             event = dbg.pollEvent()
             if event != None:
                 print(event)
