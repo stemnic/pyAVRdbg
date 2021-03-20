@@ -85,6 +85,9 @@ class Debugger():
         return self.device.read(self.memoryinfo.memory_info_by_name('internal_sram'), address-offset, numBytes)
 
     def readFlash(self, address, numBytes):
+        logging.info("Reading "+str(numBytes)+" bytes from flash at " + str(address))
+        offset = (self.memoryinfo.memory_info_by_name('flash'))['address']
+        # See programmer.py:265 in pymcuprog, maybe flashread fails due to page alignement?
         return self.device.read(self.memoryinfo.memory_info_by_name('flash'), address, numBytes)
 
     def writeEEPROM(self, address, data):

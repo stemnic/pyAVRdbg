@@ -64,7 +64,8 @@ def handleCommand(socket, command):
                 sendPacket(socket, "0")
                 return
             elif "Supported" in query:
-                sendPacket(socket, "PacketSize=1000")
+                # Since we are using a tcp connection we do not want to split up messages into different packets, so packetsize is set absurdly large
+                sendPacket(socket, "PacketSize=10000000000")
                 return
             elif "Symbol::" in query:
                 sendPacket(socket, "OK")
